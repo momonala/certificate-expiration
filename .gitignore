@@ -68,7 +68,7 @@ ehthumbs.db
 Thumbs.db
 
 # Secrets and credentials
-values.py
+**/*values.py
 google_application_credentials.json
 *.pem
 *.key
@@ -76,21 +76,8 @@ google_application_credentials.json
 .env.local
 secrets/
 
-# Database files (in data directories)
-data/*.db
-data/*.sqlite
-data/*.sqlite3
-raw_data/*.db
-raw_data/*.sqlite
-raw_data/*.sqlite3
-
-# Data directories (ignore all files within)
-data/
-raw_data/
-
 # Media files
 *.mp4
-*.mp3
 *.avi
 *.mov
 
@@ -105,3 +92,4 @@ static/*.html
 # Local development
 .local/
 .ipython/
+.cursor/
