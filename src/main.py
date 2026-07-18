@@ -1,10 +1,12 @@
 import logging
 import re
+import shutil
 from datetime import datetime
-from glob import glob
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+import typer
 from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
@@ -29,9 +31,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 telegrap_api_uri = f"https://api.telegram.org/bot{telegram_api_token}/sendMessage"
 
-certs = glob("/Users/mnalavadi/Library/Developer/Xcode/UserData/Provisioning Profiles/*mobileprovision")
-# certs = glob("/Users/mohit/Library/Developer/Xcode/UserData/Provisioning Profiles/*mobileprovision")
+PROVISIONING_PROFILES_DIR = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
+
+app = typer.Typer(help="Track iOS certificate expiration dates.")
+
+
+def clear_provisioning_profiles(directory: Path = PROVISIONING_PROFILES_DIR) -> int:
+    """Remove all files and directories under the provisioning profiles directory."""
+    if not directory.exists():
+        return 0
+
+    removed = 0
+    for path in directory.iterdir():
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        removed += 1
+    return removed
 
 
 def extract_app_name(_certificate: str) -> tuple[str, datetime]:
@@ -110,11 +128,12 @@ def send_telegram_message(app_name: str, expiration_date: datetime):
         logger.error(resp.text)
 
 
-def main():
+def check_certificates() -> None:
     console.print()
     console.rule("[bold cyan]🔐 Certificate Expiration Checker[/bold cyan]", style="cyan")
     console.print()
 
+    certs = list(PROVISIONING_PROFILES_DIR.glob("*mobileprovision"))
     if not certs:
         console.print("[yellow]⚠️  No certificates found![/yellow]")
         return
@@ -133,7 +152,7 @@ def main():
         processed += 1
 
         # Create or update calendar event
-        app_info = AppCertInfo(app_name=app_name, expiration_date=expiration_date, cert_path=cert)
+        app_info = AppCertInfo(app_name=app_name, expiration_date=expiration_date, cert_path=str(cert))
         event_mapping = load_event_ids()
         event_id = event_mapping.get(app_name)
         new_event_id = create_or_update_calendar_event(app_info, event_id)
@@ -147,6 +166,28 @@ def main():
     console.print()
     console.rule(f"[bold green]✨ Processed {processed} certificate(s)[/bold green]", style="green")
     console.print()
+
+
+@app.callback(invoke_without_command=True)
+def default(ctx: typer.Context) -> None:
+    """Run the certificate expiration check."""
+    if ctx.invoked_subcommand is not None:
+        return
+    check_certificates()
+
+
+@app.command("clear")
+def clear_cmd() -> None:
+    """Remove all Xcode provisioning profiles."""
+    removed = clear_provisioning_profiles()
+    if removed == 0:
+        console.print("[yellow]No provisioning profiles to clear.[/yellow]")
+    else:
+        console.print(f"[green]Cleared {removed} item(s) from provisioning profiles.[/green]")
+
+
+def main() -> None:
+    app()
 
 
 if __name__ == "__main__":

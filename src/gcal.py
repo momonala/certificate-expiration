@@ -22,7 +22,6 @@ SERVICE_ACCOUNT_FILE = SCRIPT_DIR / "google_application_credentials.json"
 CALENDAR_ID = "mnalavadi@gmail.com"
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
-print(SERVICE_ACCOUNT_FILE)
 credentials = service_account.Credentials.from_service_account_file(str(SERVICE_ACCOUNT_FILE), scopes=SCOPES)
 
 
