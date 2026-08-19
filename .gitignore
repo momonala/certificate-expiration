@@ -93,3 +93,4 @@ static/*.html
 .local/
 .ipython/
 .cursor/
+.claude/
