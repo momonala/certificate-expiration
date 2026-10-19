@@ -68,7 +68,6 @@ ehthumbs.db
 Thumbs.db
 
 # Secrets and credentials
-**/*values.py
 google_application_credentials.json
 *.pem
 *.key

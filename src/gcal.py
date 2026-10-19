@@ -12,6 +12,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from rich.console import Console
 
+from src.env import CALENDAR_ID
+
 console = Console()
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,6 @@ logger = logging.getLogger(__name__)
 SCRIPT_DIR = Path(__file__).parent.parent.resolve()
 EVENT_TRACKING_FILE = SCRIPT_DIR / "app_calendar_events.json"
 SERVICE_ACCOUNT_FILE = SCRIPT_DIR / "google_application_credentials.json"
-CALENDAR_ID = "mnalavadi@gmail.com"
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 credentials = service_account.Credentials.from_service_account_file(str(SERVICE_ACCOUNT_FILE), scopes=SCOPES)

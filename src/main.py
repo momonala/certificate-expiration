@@ -17,8 +17,8 @@ from src.gcal import AppCertInfo
 from src.gcal import create_or_update_calendar_event
 from src.gcal import load_event_ids
 from src.gcal import save_event_ids
-from src.values import telegram_api_token
-from src.values import telegram_chat_id
+from src.env import TELEGRAM_API_TOKEN
+from src.env import TELEGRAM_CHAT_ID
 
 # Setup rich console and logging
 console = Console()
@@ -29,7 +29,7 @@ logging.basicConfig(
     handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)],
 )
 logger = logging.getLogger(__name__)
-telegrap_api_uri = f"https://api.telegram.org/bot{telegram_api_token}/sendMessage"
+telegrap_api_uri = f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage"
 
 PROVISIONING_PROFILES_DIR = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
@@ -119,7 +119,7 @@ def send_telegram_message(app_name: str, expiration_date: datetime):
     console.print(panel)
 
     json = {
-        "chat_id": telegram_chat_id,
+        "chat_id": TELEGRAM_CHAT_ID,
         "text": f"```---{telegram_msg}```",
         "parse_mode": "Markdown",
     }

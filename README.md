@@ -53,10 +53,10 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
    }
    ```
 
-4. Copy `src/values.py.example` to `src/values.py` and fill in your Telegram credentials:
-   ```python
-   telegram_api_token = "YOUR_BOT_TOKEN"
-   telegram_chat_id = "YOUR_CHAT_ID"
+4. Copy `.env.example` to `.env` and fill in your Telegram credentials:
+   ```
+   TELEGRAM_API_TOKEN=YOUR_BOT_TOKEN
+   TELEGRAM_CHAT_ID=YOUR_CHAT_ID
    ```
 
 5. Update `PROVISIONING_PROFILES_DIR`/`identifier` in `src/main.py` and `CALENDAR_ID` in `src/gcal.py` — see [Configuration](#configuration).
@@ -77,8 +77,8 @@ certificate-expiration/
 │   ├── main.py                          # Entry point (typer CLI) - parses certs, sends notifications
 │   ├── gcal.py                          # Google Calendar event creation/updates
 │   ├── config.py                        # Exposes [tool.config] via `uv run config`
-│   ├── values.py.example                # Stub Telegram credentials used in CI
-│   └── values.py                        # Telegram credentials (not committed)
+│   └── env.py                           # Loads Telegram credentials from .env
+├── .env.example                         # Stub credentials used in CI; copy to .env (not committed)
 ├── google_application_credentials.json  # GCP service account (not committed)
 ├── app_calendar_events.json             # Persisted mapping of app → calendar event ID
 └── pyproject.toml                       # Project config and dependencies
@@ -129,7 +129,7 @@ flowchart LR
 |------|---------|
 | `app_calendar_events.json` | Maps app names to Google Calendar event IDs for idempotent updates |
 | `google_application_credentials.json` | GCP service account credentials |
-| `values.py` | Telegram bot token and chat ID |
+| `.env` | Telegram bot token and chat ID |
 
 ## External API Dependencies
 

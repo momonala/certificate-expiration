@@ -1,4 +1,0 @@
-# Stub values for CI/testing - copy to values.py for local development
-
-telegram_api_token = "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-telegram_chat_id = "0000000000"
