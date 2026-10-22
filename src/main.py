@@ -13,12 +13,12 @@ from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.text import Text
 
+from src.env import TELEGRAM_API_TOKEN
+from src.env import TELEGRAM_CHAT_ID
 from src.gcal import AppCertInfo
 from src.gcal import create_or_update_calendar_event
 from src.gcal import load_event_ids
 from src.gcal import save_event_ids
-from src.env import TELEGRAM_API_TOKEN
-from src.env import TELEGRAM_CHAT_ID
 
 # Setup rich console and logging
 console = Console()

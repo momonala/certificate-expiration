@@ -37,9 +37,3 @@ jobs:
     
     - name: Run ruff linting
       run: uv run ruff check .
-    
-    - name: Upload coverage to Codecov
-      if: always()
-      uses: codecov/codecov-action@v4
-      with:
-        fail_ci_if_error: false

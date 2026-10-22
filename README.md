@@ -1,7 +1,6 @@
 # Certificate Expiration Tracker
 
 [![CI](https://github.com/momonala/certificate-expiration/actions/workflows/ci.yml/badge.svg)](https://github.com/momonala/certificate-expiration/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/momonala/certificate-expiration/branch/main/graph/badge.svg)](https://codecov.io/gh/momonala/certificate-expiration)
 
 Monitors iOS provisioning profile expiration dates and sends notifications via Google Calendar and Telegram.
 
