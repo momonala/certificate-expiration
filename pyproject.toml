@@ -10,15 +10,15 @@ dependencies = [
     "rich",
     "google-auth",
     "google-api-python-client",
-    "pytest>=8.0.0",
-    "pytest-cov>=4.0.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "black",
     "jupyter>=1.1.1",
-    "notebook>=7.5.1",
-    "pandas>=2.3.3",
-    "ruff>=0.14.10",
-    "isort>=7.0.0",
-    "typer>=0.9.0",
+    "notebook>=7.6.3",
+    "pandas>=3.0.6",
+    "ruff>=0.17.0",
+    "isort>=9.0.2",
+    "typer>=0.27.3",
     "python-dotenv>=1.2.4",
 ]
 
@@ -73,3 +73,4 @@ exclude_lines = [
 
 [tool.uv]
 exclude-newer = "1 week"
+exclude-newer-package = { certifi = false }
