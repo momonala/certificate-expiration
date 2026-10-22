@@ -23,7 +23,6 @@ EVENT_TRACKING_FILE = SCRIPT_DIR / "app_calendar_events.json"
 SERVICE_ACCOUNT_FILE = SCRIPT_DIR / "google_application_credentials.json"
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
-credentials = service_account.Credentials.from_service_account_file(str(SERVICE_ACCOUNT_FILE), scopes=SCOPES)
 
 
 @dataclass
@@ -51,6 +50,9 @@ def save_event_ids(event_mapping: dict[str, str]) -> None:
 
 def create_or_update_calendar_event(app_info: AppCertInfo, event_id: str | None = None) -> str | None:
     """Create or update a calendar event for app certificate expiration."""
+    credentials = service_account.Credentials.from_service_account_file(
+        str(SERVICE_ACCOUNT_FILE), scopes=SCOPES
+    )
     calendar_service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
     gcal_client = calendar_service.events()
 
