@@ -6,19 +6,12 @@ authors = [{name = "Mohit Nalavadi"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "google-api-python-client",
+    "google-auth",
+    "python-dotenv>=1.2.4",
     "requests",
     "rich",
-    "google-auth",
-    "google-api-python-client",
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "black",
-    "jupyter>=1.1.1",
-    "notebook>=7.6.3",
-    "pandas>=3.0.6",
-    "ruff>=0.17.0",
     "typer>=0.27.3",
-    "python-dotenv>=1.2.4",
 ]
 
 [tool.config]
