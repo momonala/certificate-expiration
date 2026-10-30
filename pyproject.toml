@@ -1,7 +1,7 @@
 [project]
 name = "certificate-expiration"
 version = "0.1.0"
-description = "Track iOS certificate expiration dates with Google Calendar and Telegram notifications"
+description = "Track iOS certificate expiration dates with Google Calendar events"
 authors = [{name = "Mohit Nalavadi"}]
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,7 +9,6 @@ dependencies = [
     "google-api-python-client",
     "google-auth",
     "python-dotenv>=1.2.4",
-    "requests",
     "rich",
     "typer>=0.27.3",
 ]

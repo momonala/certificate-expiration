@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import requests
 import typer
 from rich import box
 from rich.console import Console
@@ -13,8 +12,6 @@ from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.text import Text
 
-from src.env import TELEGRAM_API_TOKEN
-from src.env import TELEGRAM_CHAT_ID
 from src.gcal import AppCertInfo
 from src.gcal import create_or_update_calendar_event
 from src.gcal import load_event_ids
@@ -28,8 +25,6 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)],
 )
-logger = logging.getLogger(__name__)
-telegrap_api_uri = f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage"
 
 PROVISIONING_PROFILES_DIR = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
@@ -79,7 +74,7 @@ def extract_app_name(_certificate: str) -> tuple[str, datetime]:
     return app_name, expiration_date
 
 
-def send_telegram_message(app_name: str, expiration_date: datetime):
+def print_expiry(app_name: str, expiration_date: datetime):
     formatted_expiriation = expiration_date.strftime("%a %d %b at %H:%M %Z")
 
     current_datetime = datetime.now(BERLIN_TZ)
@@ -99,10 +94,6 @@ def send_telegram_message(app_name: str, expiration_date: datetime):
         urgency_color = "green"
         urgency_icon = "✅"
 
-    l1 = f"Expiration Date: {formatted_expiriation}"
-    l2 = f"Expires in: {days}d {hours}h {minutes}m"
-    telegram_msg = f"{app_name}\n{l1}\n{l2}"
-
     # Create a rich panel for display
     content = Text()
     content.append("📅 Expiration: ", style="bold")
@@ -117,15 +108,6 @@ def send_telegram_message(app_name: str, expiration_date: datetime):
         box=box.ROUNDED,
     )
     console.print(panel)
-
-    json = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": f"```---{telegram_msg}```",
-        "parse_mode": "Markdown",
-    }
-    resp = requests.post(telegrap_api_uri, json=json)
-    if resp.status_code != 200:
-        logger.error(resp.text)
 
 
 def check_certificates() -> None:
@@ -160,8 +142,7 @@ def check_certificates() -> None:
             event_mapping[app_name] = new_event_id
         save_event_ids(event_mapping)
 
-        # Send Telegram notification
-        send_telegram_message(app_name, expiration_date)
+        print_expiry(app_name, expiration_date)
 
     console.print()
     console.rule(f"[bold green]✨ Processed {processed} certificate(s)[/bold green]", style="green")

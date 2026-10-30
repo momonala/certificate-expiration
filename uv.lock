@@ -43,7 +43,6 @@ dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "python-dotenv" },
-    { name = "requests" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -53,7 +52,6 @@ requires-dist = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
-    { name = "requests" },
     { name = "rich" },
     { name = "typer", specifier = ">=0.27.3" },
 ]

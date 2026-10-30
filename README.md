@@ -2,14 +2,13 @@
 
 [![CI](https://github.com/momonala/certificate-expiration/actions/workflows/ci.yml/badge.svg)](https://github.com/momonala/certificate-expiration/actions/workflows/ci.yml)
 
-Monitors iOS provisioning profile expiration dates and sends notifications via Google Calendar and Telegram.
+Monitors iOS provisioning profile expiration dates and adds a Google Calendar event for each one.
 
 ## Prerequisites
 
 - Python 3.12+
 - Xcode installed (provisioning profiles in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`)
 - Google Cloud service account with Calendar API enabled
-- Telegram bot token and chat ID
 
 ## Configuration
 
@@ -22,7 +21,7 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
 | `src/main.py` | `PROVISIONING_PROFILES_DIR` | Path to provisioning profiles directory |
 | `src/main.py` | `BERLIN_TZ` | Timezone for date display |
 | `src/main.py` | `identifier` (in `extract_app_name`) | Provisioning profile name prefix to match |
-| `src/gcal.py` | `CALENDAR_ID` | Google Calendar to add events to |
+| `.env` | `CALENDAR_ID` | Google Calendar to add events to |
 | `src/gcal.py` | `colorId` | Calendar event color (11 = red) |
 
 ## Installation
@@ -52,13 +51,12 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
    }
    ```
 
-4. Copy `.env.example` to `.env` and fill in your Telegram credentials:
+4. Copy `.env.example` to `.env` and set your calendar:
    ```
-   TELEGRAM_API_TOKEN=YOUR_BOT_TOKEN
-   TELEGRAM_CHAT_ID=YOUR_CHAT_ID
+   CALENDAR_ID=YOUR_CALENDAR_ID
    ```
 
-5. Update `PROVISIONING_PROFILES_DIR`/`identifier` in `src/main.py` and `CALENDAR_ID` in `src/gcal.py` — see [Configuration](#configuration).
+5. Update `PROVISIONING_PROFILES_DIR`/`identifier` in `src/main.py` — see [Configuration](#configuration).
 
 ## Running
 
@@ -66,17 +64,17 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
 uv run cert-exp
 ```
 
-Runs a check and creates/updates calendar events + sends Telegram notifications. `uv run cert-exp clear` removes all local Xcode provisioning profiles (useful to force Xcode to re-fetch fresh ones).
+Runs a check, prints each expiry and creates or updates its calendar event. `uv run cert-exp clear` removes all local Xcode provisioning profiles (useful to force Xcode to re-fetch fresh ones).
 
 ## Project Structure
 
 ```
 certificate-expiration/
 ├── src/
-│   ├── main.py                          # Entry point (typer CLI) - parses certs, sends notifications
+│   ├── main.py                          # Entry point (typer CLI) - parses certs, updates calendar events
 │   ├── gcal.py                          # Google Calendar event creation/updates
 │   ├── config.py                        # Exposes [tool.config] via `uv run config`
-│   └── env.py                           # Loads Telegram credentials from .env
+│   └── env.py                           # Loads CALENDAR_ID from .env
 ├── .env.example                         # Stub credentials used in CI; copy to .env (not committed)
 ├── google_application_credentials.json  # GCP service account (not committed)
 ├── app_calendar_events.json             # Persisted mapping of app → calendar event ID
@@ -93,7 +91,6 @@ flowchart LR
     end
     subgraph External
         GCal[Google Calendar API]
-        Telegram[Telegram Bot API]
     end
     subgraph App
         Main[src/main.py]
@@ -102,7 +99,6 @@ flowchart LR
     Certs --> Main
     JSON <--> Main
     Main --> GCal
-    Main --> Telegram
 ```
 
 ## Key Concepts
@@ -120,7 +116,6 @@ flowchart LR
 2. **Extract** - Parse XML-like content to get app name and expiration date
 3. **Filter** - Skip apps with "test" or "widget" in name
 4. **Calendar** - Create/update Google Calendar event for day before expiration
-5. **Notify** - Send Telegram message with expiration countdown
 
 ## Storage
 
@@ -128,11 +123,10 @@ flowchart LR
 |------|---------|
 | `app_calendar_events.json` | Maps app names to Google Calendar event IDs for idempotent updates |
 | `google_application_credentials.json` | GCP service account credentials |
-| `.env` | Telegram bot token and chat ID |
+| `.env` | `CALENDAR_ID` |
 
 ## External API Dependencies
 
 | Service | Auth Method | Notes |
 |---------|-------------|-------|
 | Google Calendar API | Service account JSON | Requires calendar sharing with service account email |
-| Telegram Bot API | Bot token | Send messages to specific chat ID |
