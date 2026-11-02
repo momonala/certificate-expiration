@@ -1,9 +1,7 @@
 import logging
-import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import typer
 from rich import box
@@ -12,10 +10,13 @@ from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.text import Text
 
-from src.gcal import AppCertInfo
+from src.config import TIMEZONE
 from src.gcal import create_or_update_calendar_event
 from src.gcal import load_event_ids
 from src.gcal import save_event_ids
+from src.profile import ProfileParseError
+from src.profile import ProvisioningProfile
+from src.profile import parse_profile
 
 # Setup rich console and logging
 console = Console()
@@ -27,7 +28,6 @@ logging.basicConfig(
 )
 
 PROVISIONING_PROFILES_DIR = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
-BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 app = typer.Typer(help="Track iOS certificate expiration dates.")
 
@@ -47,37 +47,22 @@ def clear_provisioning_profiles(directory: Path = PROVISIONING_PROFILES_DIR) -> 
     return removed
 
 
-def extract_app_name(_certificate: str) -> tuple[str, datetime]:
-    # Define the regular expression pattern
-    # line_with_app_name = d[5].decode("utf-8")
-    identifier = "XC mnalavadi "
-    lines = [x.decode("utf-8") for x in _certificate[4:7]]
-    line_with_app_name = [x for x in lines if identifier in x][0]
-    pattern = rf"<string>{identifier}(.*?)</string>"
-    match = re.search(pattern, line_with_app_name)
-    if not match:
-        console.print(f"[bold red]✗ ERROR:[/bold red] Could not find app name in: {line_with_app_name}")
-        return None, None
-    app_name = match.group(1)
-    if "test" in app_name.lower() or "widget" in app_name.lower():
-        return None, None
-
-    date_string = [x for x in _certificate if b"date" in x][1].decode("utf-8")
-    date_time_str = date_string.split("<date>")[1].split("</date>")[0]
-    # Convert UTC to Berlin time
-    expiration_date = (
-        datetime.strptime(date_time_str, "%Y-%m-%dT%H:%M:%SZ")
-        .replace(tzinfo=ZoneInfo("UTC"))
-        .astimezone(BERLIN_TZ)
-    )
-
-    return app_name, expiration_date
+def latest_app_profiles(profiles: list[ProvisioningProfile]) -> list[ProvisioningProfile]:
+    """Drop non-app profiles and keep the latest-expiring profile per app name."""
+    latest: dict[str, ProvisioningProfile] = {}
+    for profile in profiles:
+        if not profile.is_app:
+            continue
+        current = latest.get(profile.app_name)
+        if current is None or profile.expires_at > current.expires_at:
+            latest[profile.app_name] = profile
+    return sorted(latest.values(), key=lambda p: p.app_name)
 
 
 def print_expiry(app_name: str, expiration_date: datetime):
     formatted_expiriation = expiration_date.strftime("%a %d %b at %H:%M %Z")
 
-    current_datetime = datetime.now(BERLIN_TZ)
+    current_datetime = datetime.now(TIMEZONE)
     time_difference = expiration_date - current_datetime
     days = time_difference.days
     hours, remainder = divmod(time_difference.seconds, 3600)
@@ -110,51 +95,54 @@ def print_expiry(app_name: str, expiration_date: datetime):
     console.print(panel)
 
 
-def check_certificates() -> None:
+def check_certificates(profiles: list[ProvisioningProfile]) -> None:
     console.print()
     console.rule("[bold cyan]🔐 Certificate Expiration Checker[/bold cyan]", style="cyan")
     console.print()
 
-    certs = list(PROVISIONING_PROFILES_DIR.glob("*mobileprovision"))
-    if not certs:
+    if not profiles:
         console.print("[yellow]⚠️  No certificates found![/yellow]")
         return
 
-    console.print(f"[dim]Found {len(certs)} certificate(s) to process...[/dim]\n")
+    console.print(f"[dim]Processing {len(profiles)} certificate(s)...[/dim]\n")
 
-    processed = 0
-    for cert in certs:
-        with open(cert, "rb") as f:
-            _certificate = f.readlines()
-
-        app_name, expiration_date = extract_app_name(_certificate)
-        if not app_name:
-            continue
-
-        processed += 1
-
-        # Create or update calendar event
-        app_info = AppCertInfo(app_name=app_name, expiration_date=expiration_date, cert_path=str(cert))
-        event_mapping = load_event_ids()
-        event_id = event_mapping.get(app_name)
-        new_event_id = create_or_update_calendar_event(app_info, event_id)
-        if new_event_id:
-            event_mapping[app_name] = new_event_id
+    event_mapping = load_event_ids()
+    for profile in profiles:
+        event_mapping[profile.app_name] = create_or_update_calendar_event(
+            profile, event_mapping.get(profile.app_name)
+        )
         save_event_ids(event_mapping)
-
-        print_expiry(app_name, expiration_date)
+        print_expiry(profile.app_name, profile.expires_at.astimezone(TIMEZONE))
 
     console.print()
-    console.rule(f"[bold green]✨ Processed {processed} certificate(s)[/bold green]", style="green")
+    console.rule(f"[bold green]✨ Processed {len(profiles)} certificate(s)[/bold green]", style="green")
     console.print()
 
 
 @app.callback(invoke_without_command=True)
-def default(ctx: typer.Context) -> None:
+def default(
+    ctx: typer.Context,
+    profile: Path | None = typer.Option(
+        None,
+        "--profile",
+        exists=True,
+        dir_okay=False,
+        help="Check only this .mobileprovision instead of scanning Xcode's profiles directory.",
+    ),
+) -> None:
     """Run the certificate expiration check."""
     if ctx.invoked_subcommand is not None:
         return
-    check_certificates()
+    try:
+        if profile:
+            profiles = [parse_profile(profile)]
+        else:
+            scanned = [parse_profile(path) for path in PROVISIONING_PROFILES_DIR.glob("*.mobileprovision")]
+            profiles = latest_app_profiles(scanned)
+    except ProfileParseError as exc:
+        console.print(f"[bold red]✗ ERROR:[/bold red] {exc}")
+        raise typer.Exit(1) from exc
+    check_certificates(profiles)
 
 
 @app.command("clear")

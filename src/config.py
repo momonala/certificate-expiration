@@ -1,9 +1,13 @@
 import tomllib
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import typer
 
-_config_file = Path(__file__).parent.parent / "pyproject.toml"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TIMEZONE = ZoneInfo("Europe/Berlin")
+
+_config_file = PROJECT_ROOT / "pyproject.toml"
 with _config_file.open("rb") as f:
     _config = tomllib.load(f)
 
@@ -12,6 +16,8 @@ _tool_config = _config["tool"]["config"]
 
 CALENDAR_FILE = _tool_config["calendar_file"]
 GOOGLE_CREDS_FILE = _tool_config["google_creds_file"]
+CALENDAR_PATH = PROJECT_ROOT / CALENDAR_FILE
+GOOGLE_CREDS_PATH = PROJECT_ROOT / GOOGLE_CREDS_FILE
 
 
 # fmt: off

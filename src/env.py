@@ -1,11 +1,14 @@
 """Secrets loaded from .env (copy .env.example to .env for local development)."""
 
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(_PROJECT_ROOT / ".env")
+from src.config import PROJECT_ROOT
 
-CALENDAR_ID = os.environ.get("CALENDAR_ID", "")
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def calendar_id() -> str:
+    """The Google Calendar to write to. Raises KeyError when unset."""
+    return os.environ["CALENDAR_ID"]

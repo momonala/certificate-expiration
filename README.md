@@ -18,9 +18,8 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
 |----------|---------|-------------|
 | `pyproject.toml` `[tool.config]` | `calendar_file` | Path to the event-ID tracking JSON |
 | `pyproject.toml` `[tool.config]` | `google_creds_file` | Path to the GCP service account JSON |
-| `src/main.py` | `PROVISIONING_PROFILES_DIR` | Path to provisioning profiles directory |
-| `src/main.py` | `BERLIN_TZ` | Timezone for date display |
-| `src/main.py` | `identifier` (in `extract_app_name`) | Provisioning profile name prefix to match |
+| `src/main.py` | `PROVISIONING_PROFILES_DIR` | Directory scanned when no `--profile` is given |
+| `src/config.py` | `TIMEZONE` | Timezone for the calendar event and date display |
 | `.env` | `CALENDAR_ID` | Google Calendar to add events to |
 | `src/gcal.py` | `colorId` | Calendar event color (11 = red) |
 
@@ -56,7 +55,6 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
    CALENDAR_ID=YOUR_CALENDAR_ID
    ```
 
-5. Update `PROVISIONING_PROFILES_DIR`/`identifier` in `src/main.py` — see [Configuration](#configuration).
 
 ## Running
 
@@ -64,7 +62,9 @@ Non-secret settings live in `pyproject.toml`'s `[tool.config]` (view with `uv ru
 uv run cert-exp
 ```
 
-Runs a check, prints each expiry and creates or updates its calendar event. `uv run cert-exp clear` removes all local Xcode provisioning profiles (useful to force Xcode to re-fetch fresh ones).
+Scans Xcode's provisioning profiles directory, prints each app's expiry and creates or updates its calendar event. `uv run cert-exp --profile path/to/embedded.mobileprovision` checks one profile instead; the iOS deploy script passes the built app's own profile this way. `uv run cert-exp clear` removes all local Xcode provisioning profiles (useful to force Xcode to re-fetch fresh ones).
+
+Any failure exits non-zero: an unreadable profile, a missing `CALENDAR_ID`, or a Calendar API error. A tracked event that was deleted from the calendar is recreated.
 
 ## Project Structure
 
@@ -72,6 +72,7 @@ Runs a check, prints each expiry and creates or updates its calendar event. `uv 
 certificate-expiration/
 ├── src/
 │   ├── main.py                          # Entry point (typer CLI) - parses certs, updates calendar events
+│   ├── profile.py                       # Parses .mobileprovision files into ProvisioningProfile
 │   ├── gcal.py                          # Google Calendar event creation/updates
 │   ├── config.py                        # Exposes [tool.config] via `uv run config`
 │   └── env.py                           # Loads CALENDAR_ID from .env
@@ -106,15 +107,15 @@ flowchart LR
 | Concept | Description |
 |---------|-------------|
 | Provisioning Profile | `.mobileprovision` file containing iOS app signing certificate with expiration date |
-| `XC mnalavadi` identifier | Prefix used in provisioning profiles to identify the app name |
+| App name | Last component of the bundle ID (`org.mnalavadi.Trace` → `Trace`), so a bundle ID rename keeps the same calendar event |
 | Event tracking | Maps app names to Google Calendar event IDs for updates vs creates |
 | Day-before reminder | Calendar events are created for 1 day before actual expiration |
 
 ## Data Flow
 
-1. **Parse** - Read `.mobileprovision` files from Xcode directory
-2. **Extract** - Parse XML-like content to get app name and expiration date
-3. **Filter** - Skip apps with "test" or "widget" in name
+1. **Read** - The `--profile` file, or every `.mobileprovision` in the Xcode directory
+2. **Parse** - Load the embedded property list; take the bundle ID from `application-identifier` and `ExpirationDate`
+3. **Filter** - When scanning, skip app names ending in `Tests`/`Widget(s)` and keep the latest-expiring profile per app name
 4. **Calendar** - Create/update Google Calendar event for day before expiration
 
 ## Storage

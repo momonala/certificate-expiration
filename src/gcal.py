@@ -1,99 +1,87 @@
 """Google Calendar utilities for managing events."""
 
 import json
-import logging
-from dataclasses import dataclass
-from datetime import datetime
 from datetime import timedelta
-from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from rich.console import Console
 
-from src.env import CALENDAR_ID
+from src.config import CALENDAR_PATH
+from src.config import GOOGLE_CREDS_PATH
+from src.config import TIMEZONE
+from src.env import calendar_id
+from src.profile import ProvisioningProfile
 
 console = Console()
-logger = logging.getLogger(__name__)
 
-# Get the directory where this script is located
-SCRIPT_DIR = Path(__file__).parent.parent.resolve()
-EVENT_TRACKING_FILE = SCRIPT_DIR / "app_calendar_events.json"
-SERVICE_ACCOUNT_FILE = SCRIPT_DIR / "google_application_credentials.json"
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-BERLIN_TZ = ZoneInfo("Europe/Berlin")
-
-
-@dataclass
-class AppCertInfo:
-    """Information about an app's certificate."""
-
-    app_name: str
-    expiration_date: datetime
-    cert_path: str
+_EVENT_GONE_STATUSES = {404, 410}
 
 
 def load_event_ids() -> dict[str, str]:
     """Load the mapping of app names to calendar event IDs."""
-    if not EVENT_TRACKING_FILE.exists():
+    if not CALENDAR_PATH.exists():
         return {}
-    with open(EVENT_TRACKING_FILE) as f:
+    with CALENDAR_PATH.open() as f:
         return json.load(f)
 
 
 def save_event_ids(event_mapping: dict[str, str]) -> None:
     """Save the mapping of app names to calendar event IDs."""
-    with open(EVENT_TRACKING_FILE, "w") as f:
+    with CALENDAR_PATH.open("w") as f:
         json.dump(event_mapping, f, indent=2)
 
 
-def create_or_update_calendar_event(app_info: AppCertInfo, event_id: str | None = None) -> str | None:
-    """Create or update a calendar event for app certificate expiration."""
-    credentials = service_account.Credentials.from_service_account_file(
-        str(SERVICE_ACCOUNT_FILE), scopes=SCOPES
-    )
-    calendar_service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
-    gcal_client = calendar_service.events()
-
-    # Create event for the day before expiration
-    event_date = app_info.expiration_date.date() - timedelta(days=1)
-    event = {
-        "summary": f"🔄 Rebuild {app_info.app_name}",
+def _build_event(profile: ProvisioningProfile) -> dict:
+    expires_at = profile.expires_at.astimezone(TIMEZONE)
+    event_date = expires_at.date() - timedelta(days=1)
+    return {
+        "summary": f"🔄 Rebuild {profile.app_name}",
         "description": (
-            f"Certificate for {app_info.app_name} expires tomorrow!\n\n"
-            f"Certificate Path: {app_info.cert_path}\n"
-            f"Expiration: {app_info.expiration_date.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+            f"Certificate for {profile.app_name} expires tomorrow!\n\n"
+            f"Bundle ID: {profile.bundle_id}\n"
+            f"Certificate Path: {profile.path}\n"
+            f"Expiration: {expires_at.strftime('%Y-%m-%d %H:%M:%S %Z')}"
         ),
-        "start": {
-            "date": event_date.isoformat(),  # All-day event uses date instead of dateTime
-            "timeZone": str(BERLIN_TZ),
-        },
-        "end": {
-            "date": (
-                event_date + timedelta(days=1)
-            ).isoformat(),  # All-day event needs end date to be next day
-            "timeZone": str(BERLIN_TZ),
-        },
-        "colorId": "11",  # Red color in Google Calendar
+        "start": {"date": event_date.isoformat(), "timeZone": str(TIMEZONE)},
+        "end": {"date": (event_date + timedelta(days=1)).isoformat(), "timeZone": str(TIMEZONE)},
+        "status": "confirmed",
+        "colorId": "11",
         "reminders": {
             "useDefault": False,
             "overrides": [
-                {"method": "popup", "minutes": 1440},  # 1 day before
-                {"method": "popup", "minutes": 60},  # 1 hour before
+                {"method": "popup", "minutes": 1440},
+                {"method": "popup", "minutes": 60},
             ],
         },
     }
 
-    try:
-        if event_id:
-            result = gcal_client.update(calendarId=CALENDAR_ID, eventId=event_id, body=event).execute()
-            console.print("  [green]✓[/green] [dim]Updated calendar event[/dim]")
-        else:
-            result = gcal_client.insert(calendarId=CALENDAR_ID, body=event).execute()
-            console.print("  [green]✓[/green] [dim]Created calendar event[/dim]")
 
-        return result["id"]
-    except Exception as e:
-        console.print(f"  [red]✗[/red] [dim]Failed to sync calendar event: {e}[/dim]")
-        return None
+def create_or_update_calendar_event(profile: ProvisioningProfile, event_id: str | None = None) -> str:
+    """Create or update the all-day rebuild reminder the day before the profile expires.
+
+    An event that was deleted from the calendar is recreated. Any other API failure raises.
+
+    Returns:
+        The ID of the event now in the calendar.
+    """
+    credentials = service_account.Credentials.from_service_account_file(str(GOOGLE_CREDS_PATH), scopes=SCOPES)
+    events = build("calendar", "v3", credentials=credentials, cache_discovery=False).events()
+    event = _build_event(profile)
+    target_calendar = calendar_id()
+
+    if event_id:
+        try:
+            result = events.update(calendarId=target_calendar, eventId=event_id, body=event).execute()
+            console.print("  [green]✓[/green] [dim]Updated calendar event[/dim]")
+            return result["id"]
+        except HttpError as exc:
+            if exc.status_code not in _EVENT_GONE_STATUSES:
+                raise
+            console.print("  [yellow]![/yellow] [dim]Tracked event no longer exists, recreating[/dim]")
+
+    result = events.insert(calendarId=target_calendar, body=event).execute()
+    console.print("  [green]✓[/green] [dim]Created calendar event[/dim]")
+    return result["id"]
